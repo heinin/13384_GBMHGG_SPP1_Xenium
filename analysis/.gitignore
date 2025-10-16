@@ -1,0 +1,7 @@
+code/*.csv
+code/*.h5ad
+code/*.h5Seurat
+*.err
+*.out
+*.Rdata
+*.Rout

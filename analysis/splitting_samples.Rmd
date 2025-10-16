@@ -1,0 +1,226 @@
+---
+title: "Splitting TMA samples"
+author: "heinin"
+date: "2025-10-10"
+output:
+  workflowr::wflow_html:
+    code_folding: hide
+  html_notebook: default
+editor_options:
+  chunk_output_type: console
+---
+
+### Import packages
+
+```{r, warning=F, message=F}
+
+suppressPackageStartupMessages({
+  library(workflowr)
+  library(arrow)
+  library(Seurat)
+  library(SeuratObject)
+  library(SeuratDisk)
+  library(tidyverse)
+  library(tibble)
+  library(ggplot2)
+  library(ggpubr)
+  library(ggrepel)
+  library(googlesheets4)
+  library(workflowr)})
+
+```
+
+### Environment variables and helper functions
+
+```{r, message = F, warning = F}
+
+setwd("/home/hnatri/13384_GBMHGG_SPP1_Xenium/")
+set.seed(9999)
+options(scipen = 99999)
+options(ggrepel.max.overlaps = Inf)
+
+#source("/home/hnatri/13384_GBMHGG_SPP1_Xenium/code/GBM_Xenium_colors_themes.R")
+#source("/home/hnatri/13384_GBMHGG_SPP1_Xenium/code/plot_functions.R")
+
+```
+
+### Import data
+
+```{r, message = F, warning = F, fig.width = 4, fig.height = 4}
+
+seurat_data <- readRDS("/scratch/hnatri/13384_GBMHGG_SPP1_Xenium/spatial_filtered.rds")
+
+seurat_data@meta.data %>%
+  ggplot(aes(x = rev(TMA))) +
+  geom_bar(stat = "count") +
+  xlab("") +
+  theme_bw() +
+  RotatedAxis()
+
+# Metadata
+#gs4_deauth()
+#metadata  <- gs4_get("")
+#sheet_names(metadata)
+#metadata <- read_sheet(metadata, sheet = "Xenium samples")
+
+```
+
+```{r, message = F, warning = F, fig.width = 8, fig.height = 7}
+
+DimPlot(seurat_data,
+        reduction = "sp",
+        split.by = "TMA",
+        raster = T) +
+  coord_fixed(ratio = 1) +
+  theme_minimal() +
+  NoLegend() +
+  RotatedAxis()
+
+```
+
+### Splitting the samples
+
+#### Adding sample info
+
+```{r, message = F, warning = F, fig.width = 4, fig.height = 7}
+
+# Xenium output directories
+xenium_paths <- c(
+  TMA1_0069295 = "/tgen_labs/banovich/xenium_run_folders/20251003__191226__COMBO_NB-TGenTMA_CB-hBrainTMA1/output-XETG00048__0069295__NB_TGenTMA1__20251003__191241",
+  TMA1_0069754 = "/tgen_labs/banovich/xenium_run_folders/20251003__191226__COMBO_NB-TGenTMA_CB-hBrainTMA1/output-XETG00048__0069754__CB_hBrainTMA1__20251003__191242")
+
+# Cell stats
+cellstat_path <- "/tgen_labs/banovich/BCTCSF/13384_GBMHGG_Xenium/CellStats/"
+
+# Read in cell metadata
+xenium_output <- xenium_paths[["TMA1_0069754"]]
+cell_meta <- read.csv(paste(xenium_output, "/cells.csv.gz", sep = ""),
+                      header = T)
+cell_meta$cell_id <- paste0("TMA1_0069754_", cell_meta$cell_id)
+# Will want to join on cell id (cell_id) for this file
+
+# Which cells correspond to which sample
+# Each sample has their own file
+smpls <- c("UPN109-AFS1",
+           "UPN109-E1",
+           "UPN141-B1.1",
+           "UPN141-B1.2",
+           "UPN146-C3",
+           "UPN234-C2",
+           "UPN248-A2",
+           "UPN301-E1")
+
+smpl_cell_ids_all <- c()
+for (smpl in smpls) {
+  print(smpl)
+  smpl_cell_ids <- read.csv(paste0(cellstat_path, smpl, "_cells_stats.csv"),
+                            header = T, comment.char = "#")
+  smpl_cell_ids$Cell.ID <- paste0("TMA1_0069754_", smpl_cell_ids$Cell.ID)
+  # add sample 
+  smpl_cell_ids$Sample <- smpl
+  smpl_cell_ids_sub <- smpl_cell_ids %>% 
+    dplyr::select(Cell.ID, Sample)
+  smpl_cell_ids_all <- rbind(smpl_cell_ids_all, smpl_cell_ids_sub)
+}
+
+# Join the two files
+cell_meta_merge <- merge(cell_meta, smpl_cell_ids_all, 
+                         by.x = "cell_id",
+                         by.y = "Cell.ID")
+
+# Filter out cells that were not assigned to a sample
+# Since some of the samples overlap they will not be included
+seurat_data@meta.data$cell_id <- rownames(seurat_data@meta.data)
+seurat_data <- subset(seurat_data, subset = TMA == "TMA1_0069754")
+
+length(setdiff(cell_meta_merge$cell_id, seurat_data@meta.data$cell_id))
+length(setdiff(seurat_data@meta.data$cell_id, cell_meta_merge$cell_id))
+length(intersect(seurat_data@meta.data$cell_id, cell_meta_merge$cell_id))
+
+cells_to_keep <- cell_meta_merge$cell_id
+#cells_to_keep <- paste0(strsplit(tma, "-")[[1]][2], "_", cells_to_keep)
+seurat_data_sub <- subset(seurat_data, subset = cell_id %in% cells_to_keep)
+
+# Add metadata to filtered object
+seurat_data_sub_meta <- seurat_data_sub@meta.data
+seurat_data_sub_meta_cell_meta <- merge(seurat_data_sub_meta,
+                                        cell_meta_merge)
+
+seurat_data_sub@meta.data <- seurat_data_sub_meta_cell_meta
+
+# Fixing cell names
+rownames(seurat_data_sub@meta.data) <- seurat_data_sub$cell_id
+seurat_data_sub <- RenameCells(seurat_data_sub,
+                               new.names = seurat_data_sub$cell_id)
+
+# Make SP reduction
+# Add spatial dimension reduction object separately
+position_xy <- cbind((seurat_data_sub@meta.data$x_centroid), (seurat_data_sub@meta.data$y_centroid)*-1)
+rownames(position_xy) <- rownames(seurat_data_sub@meta.data)
+colnames(position_xy) <- c("SP_1", "SP_2")
+seurat_data_sub[["sp"]] <- CreateDimReducObject(
+  embeddings = position_xy, key = "SP_", assay = DefaultAssay(seurat_data_sub))
+
+```
+
+```{r, message = F, warning = F, fig.width = 4, fig.height = 7}
+
+# Add spatial dimension reduction object separately
+position_xy <- cbind((seurat_data_sub$x_centroid)*-1,
+                     (seurat_data_sub$y_centroid))
+row.names(position_xy) <- row.names(seurat_data_sub@meta.data)
+colnames(position_xy) <- c("SP_1", "SP_2")
+seurat_data_sub[["sp"]] <- CreateDimReducObject(
+  embeddings = position_xy, key = "SP_", assay = DefaultAssay(seurat_data_sub))
+
+DimPlot(seurat_data_sub,
+        reduction = "sp",
+        raster = T,
+        label = F) +
+  coord_fixed(ratio = 1) +
+  theme_minimal() +
+  NoLegend() +
+  RotatedAxis()
+
+# Saving the object for clustering with ScanPy
+DefaultAssay(seurat_data_sub) <- "RNA"
+
+#saveRDS(seurat_data_sub, "/tgen_labs/banovich/BCTCSF/13384_GBMHGG_Xenium/spatial_filtered_splitsamples.rds")
+
+```
+
+#### Spatial plots by sample
+
+```{r, message = F, warning = F, fig.width = 4, fig.height = 7}
+
+seurat_data_sub <- readRDS("/tgen_labs/banovich/BCTCSF/13384_GBMHGG_Xenium/spatial_filtered_splitsamples.rds")
+
+DimPlot(seurat_data_sub,
+        reduction = "sp",
+        group.by = "Sample",
+        raster = T,
+        label = T) +
+    coord_fixed(ratio = 1) +
+    theme_minimal() +
+    NoLegend() +
+    ggtitle("TMA1_0069754")
+
+```
+
+### Cell numbers by sample
+
+```{r, message = F, warning = F, fig.width = 6, fig.height = 4}
+
+table(seurat_data_sub$Sample) %>%
+  as.data.frame() %>%
+  ggplot(aes(x = reorder(Var1, -Freq), y = Freq)) +
+  geom_bar(stat = "identity") +
+  xlab("") +
+  theme_bw() +
+  RotatedAxis() +
+  coord_flip()
+
+```
+
+
+

@@ -9,3 +9,6 @@ analysis/*png
 analysis/*html
 analysis/*_cache
 analysis/site_libs
+code/RSC_latest_EDM_2025-08-06/*csv
+code/RSC_latest_EDM_2025-08-06/*h5Seurat
+code/RSC_latest_EDM_2025-08-06/*h5ad

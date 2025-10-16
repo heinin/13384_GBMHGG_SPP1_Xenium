@@ -1,0 +1,581 @@
+---
+title: "Plotting marker features"
+author: "heinin"
+date: "2025-10-12"
+output:
+  workflowr::wflow_html:
+    code_folding: hide
+  html_notebook: default
+editor_options:
+  chunk_output_type: console
+---
+
+## Import packages
+
+```{r, warning=F, message=F}
+
+suppressPackageStartupMessages({
+  library(workflowr)
+  library(arrow)
+  library(Seurat)
+  library(SeuratObject)
+  library(SeuratDisk)
+  library(tidyverse)
+  library(tibble)
+  library(ggplot2)
+  library(ggpubr)
+  library(ggrepel)
+  library(googlesheets4)
+  library(workflowr)})
+
+```
+
+## Environment variables and helper functions
+
+```{r, message = F, warning = F}
+
+setwd("/home/hnatri/13384_GBMHGG_SPP1_Xenium/")
+set.seed(9999)
+options(scipen = 99999)
+options(ggrepel.max.overlaps = Inf)
+
+#source("/home/hnatri/13384_GBMHGG_SPP1_Xenium/code/colors_themes.R")
+source("/home/hnatri/13384_GBMHGG_SPP1_Xenium/code/plot_functions.R")
+
+# Cluster colors
+main_clusters <- as.factor(c(0, seq(1:20)))
+main_cluster_col <- colorRampPalette(brewer.pal(10, "Paired"))(nb.cols <- length(main_clusters))
+names(main_cluster_col) <- levels(main_clusters)
+
+```
+
+## Import data
+
+```{r, message = F, warning = F, fig.width = 4, fig.height = 4}
+
+# Copied to isilon /tgen_labs/banovich/PIPAC/Seurat
+seurat_data <- readRDS("/tgen_labs/banovich/BCTCSF/13384_GBMHGG_Xenium/Seurat/spatial_clustered_NN30_PC50_Seurat.rds")
+
+seurat_data <- NormalizeData(seurat_data)
+seurat_data <- ScaleData(seurat_data)
+
+DimPlot(seurat_data,
+        group.by = "leiden_1.0",
+        cols = main_cluster_col,
+        reduction = "umap",
+        raster = T,
+        label = T) +
+  coord_fixed(ratio = 1) +
+  theme_classic() +
+  NoLegend()
+
+```
+
+```{r, message = F, warning = F, fig.width = 4, fig.height = 7}
+
+DimPlot(seurat_data,
+        reduction = "sp",
+        group.by = "leiden_1.0",
+        cols = main_cluster_col,
+        raster = T,
+        label = F) +
+    coord_fixed(ratio = 1) +
+    theme_minimal() +
+    NoLegend() +
+    ggtitle("TMA1_0069754")
+
+```
+
+## Feature annotations
+
+```{r, message = F, warning = F, fig.width = 4, fig.height = 7}
+
+gs4_deauth()
+all_sheets  <- gs4_get("https://docs.google.com/spreadsheets/d/1V1YxYPMI-J1ilZ3ooTDM323s5VMIf7E9f5XsuIOaGAg/edit?usp=sharing")
+sheet_names(all_sheets)
+multissue_cancer <- read_sheet(all_sheets, sheet = "Multi-tissue and cancer basepanel")
+custom_panel <- read_sheet(all_sheets, sheet = "Custom probes")
+
+```
+
+## Annotation groups
+
+```{r, message = F, warning = F, fig.width = 4, fig.height = 7}
+
+#unique(multissue_cancer$Annotation)
+
+fibroblast_markers <- multissue_cancer[grep("Fibroblast", multissue_cancer$Annotation),]$Gene # 65
+
+immune_markers <- multissue_cancer[grep("Immune", multissue_cancer$Annotation),]$Gene # 6
+
+macrophage_markers <- multissue_cancer[grep("Macrophage", multissue_cancer$Annotation),]$Gene # 70
+granulocyte_markers <- multissue_cancer[grep("Granulocytes", multissue_cancer$Annotation),]$Gene # 25
+dendritic_markers <- c(multissue_cancer[grep("dendritic", multissue_cancer$Annotation),]$Gene,
+                       multissue_cancer[grep("Dendritic", multissue_cancer$Annotation),]$Gene) #22
+
+tcell_markers <- multissue_cancer[grep("T cells", multissue_cancer$Annotation),]$Gene # 62
+bcell_markers <- multissue_cancer[grep("B cells", multissue_cancer$Annotation),]$Gene # 45
+
+proliferation_markers <- multissue_cancer[grep("Proliferation", multissue_cancer$Annotation),]$Gene # 7
+endothelial_markers <- multissue_cancer[grep("Endothelial", multissue_cancer$Annotation),]$Gene # 82
+
+```
+
+## Dotplots by feature type
+
+### Fibroblast
+
+```{r, message = F, warning = F, fig.width = 8, fig.height = 12}
+
+create_dotplot_heatmap(seurat_object = seurat_data,
+                       plot_features = fibroblast_markers,
+                       group_var = "leiden_1.0",
+                       group_colors = main_cluster_col,
+                       column_title = "",
+                       row_km = 5,
+                       col_km = 5,
+                       row.order = NULL,
+                       col.order = NULL)
+
+```
+
+### Immune markers
+
+```{r, message = F, warning = F, fig.width = 8, fig.height = 4}
+
+create_dotplot_heatmap(seurat_object = seurat_data,
+                       plot_features = immune_markers,
+                       group_var = "leiden_1.0",
+                       group_colors = main_cluster_col,
+                       column_title = "",
+                       row_km = 5,
+                       col_km = 5,
+                       row.order = NULL,
+                       col.order = NULL)
+
+```
+
+### Macrophage markers
+
+```{r, message = F, warning = F, fig.width = 8, fig.height = 12}
+
+create_dotplot_heatmap(seurat_object = seurat_data,
+                       plot_features = macrophage_markers,
+                       group_var = "leiden_1.0",
+                       group_colors = main_cluster_col,
+                       column_title = "",
+                       row_km = 5,
+                       col_km = 5,
+                       row.order = NULL,
+                       col.order = NULL)
+
+```
+
+### Granulocyte markers
+
+```{r, message = F, warning = F, fig.width = 8, fig.height = 8}
+
+create_dotplot_heatmap(seurat_object = seurat_data,
+                       plot_features = granulocyte_markers,
+                       group_var = "leiden_1.0",
+                       group_colors = main_cluster_col,
+                       column_title = "",
+                       row_km = 5,
+                       col_km = 5,
+                       row.order = NULL,
+                       col.order = NULL)
+
+```
+
+### Dendritic markers
+
+```{r, message = F, warning = F, fig.width = 8, fig.height = 7}
+
+create_dotplot_heatmap(seurat_object = seurat_data,
+                       plot_features = dendritic_markers,
+                       group_var = "leiden_1.0",
+                       group_colors = main_cluster_col,
+                       column_title = "",
+                       row_km = 5,
+                       col_km = 5,
+                       row.order = NULL,
+                       col.order = NULL)
+
+```
+
+### T cell markers
+
+```{r, message = F, warning = F, fig.width = 8, fig.height = 12}
+
+create_dotplot_heatmap(seurat_object = seurat_data,
+                       plot_features = tcell_markers,
+                       group_var = "leiden_1.0",
+                       group_colors = main_cluster_col,
+                       column_title = "",
+                       row_km = 5,
+                       col_km = 5,
+                       row.order = NULL,
+                       col.order = NULL)
+
+```
+
+### B cell markers
+
+```{r, message = F, warning = F, fig.width = 8, fig.height = 14}
+
+create_dotplot_heatmap(seurat_object = seurat_data,
+                       plot_features = bcell_markers,
+                       group_var = "leiden_1.0",
+                       group_colors = main_cluster_col,
+                       column_title = "",
+                       row_km = 5,
+                       col_km = 5,
+                       row.order = NULL,
+                       col.order = NULL)
+
+```
+
+### Proliferation cell markers
+
+```{r, message = F, warning = F, fig.width = 8, fig.height = 5}
+
+create_dotplot_heatmap(seurat_object = seurat_data,
+                       plot_features = proliferation_markers,
+                       group_var = "leiden_1.0",
+                       group_colors = main_cluster_col,
+                       column_title = "",
+                       row_km = 5,
+                       col_km = 5,
+                       row.order = NULL,
+                       col.order = NULL)
+
+```
+
+### Endothelial cell markers
+
+```{r, message = F, warning = F, fig.width = 8, fig.height = 16}
+
+create_dotplot_heatmap(seurat_object = seurat_data,
+                       plot_features = endothelial_markers,
+                       group_var = "leiden_1.0",
+                       group_colors = main_cluster_col,
+                       column_title = "",
+                       row_km = 5,
+                       col_km = 5,
+                       row.order = NULL,
+                       col.order = NULL)
+
+```
+
+## Spatial plots by feature type
+
+### Fibroblast
+
+```{r, message = F, warning = F, fig.width = 12, fig.height = 30}
+
+FeaturePlot(seurat_data,
+            slot = "data",
+            features = fibroblast_markers[1:32],
+            order = T,
+            reduction = "sp",
+            raster = T,
+            ncol = 4,
+            cols = c("gray89", "tomato3")) &
+  coord_fixed(ratio = 1) &
+  theme_bw() &
+  NoLegend()
+
+```
+
+```{r, message = F, warning = F, fig.width = 12, fig.height = 34}
+
+FeaturePlot(seurat_data,
+            slot = "data",
+            features = fibroblast_markers[33:65],
+            order = T,
+            reduction = "sp",
+            raster = T,
+            ncol = 4,
+            cols = c("gray89", "tomato3")) &
+  coord_fixed(ratio = 1) &
+  theme_bw() &
+  NoLegend()
+
+```
+
+### Immune markers
+
+```{r, message = F, warning = F, fig.width = 12, fig.height = 8}
+
+FeaturePlot(seurat_data,
+            slot = "data",
+            features = immune_markers,
+            order = T,
+            reduction = "sp",
+            raster = T,
+            ncol = 4,
+            cols = c("gray89", "tomato3")) &
+  coord_fixed(ratio = 1) &
+  theme_bw() &
+  NoLegend()
+
+```
+
+### Macrophages
+
+```{r, message = F, warning = F, fig.width = 12, fig.height = 30}
+
+FeaturePlot(seurat_data,
+            slot = "data",
+            features = macrophage_markers[1:32],
+            order = T,
+            reduction = "sp",
+            raster = T,
+            ncol = 4,
+            cols = c("gray89", "tomato3")) &
+  coord_fixed(ratio = 1) &
+  theme_bw() &
+  NoLegend()
+
+```
+
+```{r, message = F, warning = F, fig.width = 12, fig.height = 34}
+
+FeaturePlot(seurat_data,
+            slot = "data",
+            features = macrophage_markers[33:65],
+            order = T,
+            reduction = "sp",
+            raster = T,
+            ncol = 4,
+            cols = c("gray89", "tomato3")) &
+  coord_fixed(ratio = 1) &
+  theme_bw() &
+  NoLegend()
+
+```
+
+```{r, message = F, warning = F, fig.width = 12, fig.height = 8}
+
+FeaturePlot(seurat_data,
+            slot = "data",
+            features = macrophage_markers[66:70],
+            order = T,
+            reduction = "sp",
+            raster = T,
+            ncol = 4,
+            cols = c("gray89", "tomato3")) &
+  coord_fixed(ratio = 1) &
+  theme_bw() &
+  NoLegend()
+
+```
+
+### Granulocyte markers
+
+```{r, message = F, warning = F, fig.width = 12, fig.height = 24}
+
+FeaturePlot(seurat_data,
+            slot = "data",
+            features = granulocyte_markers,
+            order = T,
+            reduction = "sp",
+            raster = T,
+            ncol = 4,
+            cols = c("gray89", "tomato3")) &
+  coord_fixed(ratio = 1) &
+  theme_bw() &
+  NoLegend()
+
+```
+
+### Dendritic markers
+
+```{r, message = F, warning = F, fig.width = 12, fig.height = 22}
+
+FeaturePlot(seurat_data,
+            slot = "data",
+            features = dendritic_markers,
+            order = T,
+            reduction = "sp",
+            raster = T,
+            ncol = 4,
+            cols = c("gray89", "tomato3")) &
+  coord_fixed(ratio = 1) &
+  theme_bw() &
+  NoLegend()
+
+```
+
+### T cell markers
+
+```{r, message = F, warning = F, fig.width = 12, fig.height = 32}
+
+FeaturePlot(seurat_data,
+            slot = "data",
+            features = tcell_markers[1:31],
+            order = T,
+            reduction = "sp",
+            raster = T,
+            ncol = 4,
+            cols = c("gray89", "tomato3")) &
+  coord_fixed(ratio = 1) &
+  theme_bw() &
+  NoLegend()
+
+```
+
+```{r, message = F, warning = F, fig.width = 12, fig.height = 32}
+
+FeaturePlot(seurat_data,
+            slot = "data",
+            features = tcell_markers[32:62],
+            order = T,
+            reduction = "sp",
+            raster = T,
+            ncol = 4,
+            cols = c("gray89", "tomato3")) &
+  coord_fixed(ratio = 1) &
+  theme_bw() &
+  NoLegend()
+
+```
+
+### B cell markers
+
+```{r, message = F, warning = F, fig.width = 12, fig.height = 24}
+
+FeaturePlot(seurat_data,
+            slot = "data",
+            features = bcell_markers[1:22],
+            order = T,
+            reduction = "sp",
+            raster = T,
+            ncol = 4,
+            cols = c("gray89", "tomato3")) &
+  coord_fixed(ratio = 1) &
+  theme_bw() &
+  NoLegend()
+
+```
+
+```{r, message = F, warning = F, fig.width = 12, fig.height = 24}
+
+FeaturePlot(seurat_data,
+            slot = "data",
+            features = bcell_markers[23:45],
+            order = T,
+            reduction = "sp",
+            raster = T,
+            ncol = 4,
+            cols = c("gray89", "tomato3")) &
+  coord_fixed(ratio = 1) &
+  theme_bw() &
+  NoLegend()
+
+```
+
+### Proliferation markers
+
+```{r, message = F, warning = F, fig.width = 12, fig.height = 8}
+
+FeaturePlot(seurat_data,
+            slot = "data",
+            features = proliferation_markers,
+            order = T,
+            reduction = "sp",
+            raster = T,
+            ncol = 4,
+            cols = c("gray89", "tomato3")) &
+  coord_fixed(ratio = 1) &
+  theme_bw() &
+  NoLegend()
+
+```
+
+### Endothelial markers
+
+```{r, message = F, warning = F, fig.width = 12, fig.height = 24}
+
+FeaturePlot(seurat_data,
+            slot = "data",
+            features = endothelial_markers[1:28],
+            order = T,
+            reduction = "sp",
+            raster = T,
+            ncol = 4,
+            cols = c("gray89", "tomato3")) &
+  coord_fixed(ratio = 1) &
+  theme_bw() &
+  NoLegend()
+
+```
+
+```{r, message = F, warning = F, fig.width = 12, fig.height = 24}
+
+FeaturePlot(seurat_data,
+            slot = "data",
+            features = endothelial_markers[29:56],
+            order = T,
+            reduction = "sp",
+            raster = T,
+            ncol = 4,
+            cols = c("gray89", "tomato3")) &
+  coord_fixed(ratio = 1) &
+  theme_bw() &
+  NoLegend()
+
+```
+
+```{r, message = F, warning = F, fig.width = 12, fig.height = 24}
+
+FeaturePlot(seurat_data,
+            slot = "data",
+            features = endothelial_markers[57:82],
+            order = T,
+            reduction = "sp",
+            raster = T,
+            ncol = 4,
+            cols = c("gray89", "tomato3")) &
+  coord_fixed(ratio = 1) &
+  theme_bw() &
+  NoLegend()
+
+```
+
+## All custom genes
+
+```{r, message = F, warning = F, fig.width = 4, fig.height = 7}
+
+all_custom_genes <- custom_panel$Gene
+all_custom_genes <- gsub("CD11b", "ITGAM", all_custom_genes)
+all_custom_genes <- gsub("CD11c", "ITGAX", all_custom_genes)
+all_custom_genes <- gsub("CD31", "PECAM1", all_custom_genes)
+all_custom_genes <- gsub("CD45", "PTPRC", all_custom_genes)
+all_custom_genes <- gsub("HLA-DR", "HLA-DRA", all_custom_genes)
+all_custom_genes <- gsub("HLA.DPB1", "HLA-DPB1", all_custom_genes)
+all_custom_genes <- gsub("IFNGR", "IFNGR1", all_custom_genes)
+all_custom_genes <- gsub("TGFβ", "TGFB1", all_custom_genes)
+all_custom_genes <- gsub("TGFβR", "TGFB1R", all_custom_genes)
+all_custom_genes <- gsub("TGFB1R", "TGFBR1", all_custom_genes)
+all_custom_genes <- gsub("IL-1R", "IL1R2", all_custom_genes)
+
+all_custom_genes <- sort(all_custom_genes)
+
+plot_list <- lapply(all_custom_genes, function(xx){
+  FeaturePlot(seurat_data,
+              slot = "data",
+              features = xx,
+              order = T,
+              reduction = "sp",
+              raster = T,
+              ncol = 4,
+              cols = c("gray89", "tomato3")) &
+  coord_fixed(ratio = 1) &
+  theme_bw() &
+  NoLegend()
+})
+
+plot_list
+
+```

@@ -1,0 +1,153 @@
+---
+title: "Plotting all base panel marker features"
+author: "heinin"
+date: "2025-10-12"
+output:
+  workflowr::wflow_html:
+    code_folding: hide
+  html_notebook: default
+editor_options:
+  chunk_output_type: console
+---
+
+## Import packages
+
+```{r, warning=F, message=F}
+
+suppressPackageStartupMessages({
+  library(workflowr)
+  library(arrow)
+  library(Seurat)
+  library(SeuratObject)
+  library(SeuratDisk)
+  library(tidyverse)
+  library(tibble)
+  library(ggplot2)
+  library(ggpubr)
+  library(ggrepel)
+  library(googlesheets4)
+  library(workflowr)})
+
+```
+
+## Environment variables and helper functions
+
+```{r, message = F, warning = F}
+
+setwd("/home/hnatri/13384_GBMHGG_SPP1_Xenium/")
+set.seed(9999)
+options(scipen = 99999)
+options(ggrepel.max.overlaps = Inf)
+
+#source("/home/hnatri/13384_GBMHGG_SPP1_Xenium/code/colors_themes.R")
+source("/home/hnatri/13384_GBMHGG_SPP1_Xenium/code/plot_functions.R")
+
+# Cluster colors
+main_clusters <- as.factor(c(0, seq(1:20)))
+main_cluster_col <- colorRampPalette(brewer.pal(10, "Paired"))(nb.cols <- length(main_clusters))
+names(main_cluster_col) <- levels(main_clusters)
+
+```
+
+## Import data
+
+```{r, message = F, warning = F, fig.width = 4, fig.height = 4}
+
+# Copied to isilon /tgen_labs/banovich/PIPAC/Seurat
+seurat_data <- readRDS("/tgen_labs/banovich/BCTCSF/13384_GBMHGG_Xenium/Seurat/spatial_clustered_NN30_PC50_Seurat.rds")
+
+seurat_data <- NormalizeData(seurat_data)
+VariableFeatures(seurat_data) <- rownames(seurat_data)
+seurat_data <- ScaleData(seurat_data)
+
+```
+
+```{r, message = F, warning = F, fig.width = 4, fig.height = 7}
+
+DimPlot(seurat_data,
+        reduction = "sp",
+        group.by = "leiden_1.0",
+        cols = main_cluster_col,
+        raster = T,
+        label = F) +
+    coord_fixed(ratio = 1) +
+    theme_minimal() +
+    NoLegend() +
+    ggtitle("TMA1_0069754")
+
+```
+
+## Feature annotations
+
+```{r, message = F, warning = F, fig.width = 4, fig.height = 7}
+
+gs4_deauth()
+all_sheets  <- gs4_get("https://docs.google.com/spreadsheets/d/1V1YxYPMI-J1ilZ3ooTDM323s5VMIf7E9f5XsuIOaGAg/edit?usp=sharing")
+sheet_names(all_sheets)
+multissue_cancer <- read_sheet(all_sheets, sheet = "Multi-tissue and cancer basepanel")
+custom_panel <- read_sheet(all_sheets, sheet = "Custom probes")
+
+```
+
+## Annotation groups
+
+```{r, message = F, warning = F, fig.width = 4, fig.height = 7}
+
+#unique(multissue_cancer$Annotation)
+
+fibroblast_markers <- multissue_cancer[grep("Fibroblast", multissue_cancer$Annotation),]$Gene # 65
+
+immune_markers <- multissue_cancer[grep("Immune", multissue_cancer$Annotation),]$Gene # 6
+
+macrophage_markers <- multissue_cancer[grep("Macrophage", multissue_cancer$Annotation),]$Gene # 70
+granulocyte_markers <- multissue_cancer[grep("Granulocytes", multissue_cancer$Annotation),]$Gene # 25
+dendritic_markers <- c(multissue_cancer[grep("dendritic", multissue_cancer$Annotation),]$Gene,
+                       multissue_cancer[grep("Dendritic", multissue_cancer$Annotation),]$Gene) #22
+
+tcell_markers <- multissue_cancer[grep("T cells", multissue_cancer$Annotation),]$Gene # 62
+bcell_markers <- multissue_cancer[grep("B cells", multissue_cancer$Annotation),]$Gene # 45
+
+proliferation_markers <- multissue_cancer[grep("Proliferation", multissue_cancer$Annotation),]$Gene # 7
+endothelial_markers <- multissue_cancer[grep("Endothelial", multissue_cancer$Annotation),]$Gene # 82
+
+```
+
+## Spatial plots of all base-panel genes
+
+```{r, warning = F, fig.width = 4, fig.height = 7}
+
+all_genes <- c(multissue_cancer$Gene) #custom_panel$Gene
+all_genes <- gsub("CD11b", "ITGAM", all_genes)
+all_genes <- gsub("CD11c", "ITGAX", all_genes)
+all_genes <- gsub("CD31", "PECAM1", all_genes)
+all_genes <- gsub("CD45", "PTPRC", all_genes)
+all_genes <- gsub("HLA-DR", "HLA-DRA", all_genes)
+all_genes <- gsub("HLA.DPB1", "HLA-DPB1", all_genes)
+all_genes <- gsub("IFNGR", "IFNGR1", all_genes)
+all_genes <- gsub("TGFβ", "TGFB1", all_genes)
+all_genes <- gsub("TGFβR", "TGFB1R", all_genes)
+all_genes <- gsub("TGFB1R", "TGFBR1", all_genes)
+all_genes <- gsub("IL-1R", "IL1R2", all_genes)
+
+all_genes <- sort(all_genes)
+
+#setdiff(all_genes, rownames(seurat_data))
+#grep("TGFB", rownames(seurat_data), value = T)
+
+for(gene in all_genes){
+  message(gene)
+  
+  print(FeaturePlot(seurat_data,
+              slot = "data",
+              features = gene,
+              order = T,
+              reduction = "sp",
+              raster = T,
+              ncol = 1,
+              cols = c("gray89", "tomato3")) &
+  coord_fixed(ratio = 1) &
+  theme_bw() &
+  NoLegend())
+}
+
+```
