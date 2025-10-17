@@ -10,6 +10,8 @@ editor_options:
 
 ### Analyzing GBM/HGG Xenium data.
 
+Project tables: [https://docs.google.com/spreadsheets/d/1V1YxYPMI-J1ilZ3ooTDM323s5VMIf7E9f5XsuIOaGAg/edit?usp=sharing](https://docs.google.com/spreadsheets/d/1V1YxYPMI-J1ilZ3ooTDM323s5VMIf7E9f5XsuIOaGAg/edit?usp=sharing)
+
 1. [Processing Xenium data](Xenium_processing.html)\
 2. [Splitting samples](splitting_samples.html)\
 3. [Rough annotation](annotation.html)\
