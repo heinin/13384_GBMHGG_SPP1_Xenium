@@ -8,4 +8,13 @@ editor_options:
   chunk_output_type: console
 ---
 
-Welcome to my research website.
+### Analyzing GBM/HGG Xenium data.
+
+1. [Processing Xenium data](Xenium_processing.html)\
+2. [Splitting samples](splitting_samples.html)\
+3. [Rough annotation](annotation.html)\
+4. [Plot features by type](plot_features.html)\
+5. [Plotting all base-panel features](plot_all_features.html)\
+6. [Plotting all custom panel features](plot_all_features custom.html)\
+
+Contact: Heini M Natri, hnatri@tgen.org
