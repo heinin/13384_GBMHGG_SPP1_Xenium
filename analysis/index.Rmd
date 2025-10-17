@@ -17,6 +17,6 @@ Project tables: [https://docs.google.com/spreadsheets/d/1V1YxYPMI-J1ilZ3ooTDM323
 3. [Rough annotation](annotation.html)\
 4. [Plot features by type](plot_features.html)\
 5. [Plotting all base-panel features](plot_all_features.html)\
-6. [Plotting all custom panel features](plot_all_features custom.html)\
+6. [Plotting all custom panel features](plot_all_features_custom.html)\
 
 Contact: Heini M Natri, hnatri@tgen.org
