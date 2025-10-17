@@ -243,7 +243,7 @@ nonimmune_subset <- subset(seurat_data, subset = Lineage == "TumorStroma")
 saveRDS(immune_subset, "/scratch/hnatri/13384_GBMHGG_SPP1_Xenium/cell_immune_subset.rds")
 saveRDS(nonimmune_subset, "/scratch/hnatri/13384_GBMHGG_SPP1_Xenium/cell_nonimmune_subset.rds")
 
-# To build on command line, run Rscript -e "rmarkdown::render('annotation_cell.Rmd')"
+# To build on command line, run Rscript -e "rmarkdown::render('annotation.Rmd')"
 # Then "mv *.html /home/hnatri/13384_GBMHGG_SPP1_Xenium/docs/"
 
 ```
