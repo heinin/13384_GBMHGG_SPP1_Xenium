@@ -1,5 +1,5 @@
 ---
-title: "Cell type annotation on GBM/HGG Xenium data"
+title: "First pass cßelltype annotation on GBM/HGG Xenium data"
 author: "heinin"
 date: "2025-10-11"
 output:
@@ -39,7 +39,7 @@ set.seed(9999)
 options(scipen = 99999)
 options(ggrepel.max.overlaps = Inf)
 
-#source("/home/hnatri/13384_GBMHGG_SPP1_Xenium/code/olors_themes.R")
+source("/home/hnatri/13384_GBMHGG_SPP1_Xenium/code/colors.R")
 source("/home/hnatri/13384_GBMHGG_SPP1_Xenium/code/plot_functions.R")
 
 ```
@@ -177,12 +177,12 @@ table(cluster_markers$cluster)
 top_cluster_markers <- cluster_markers %>%
   arrange(dplyr::desc(avg_log2FC)) %>%
   group_by(cluster) %>%
-  dplyr::slice(1:10)
+  dplyr::slice(1:5)
 
 ```
 
 
-```{r, message = F, warning = F, fig.width = 6, fig.height = 18, eval = F}
+```{r, message = F, warning = F, fig.width = 6, fig.height = 18, eval = T}
 
 create_dotplot_heatmap(seurat_object = seurat_data,
                        plot_features = unique(top_cluster_markers$gene),
@@ -234,7 +234,7 @@ write.table(output_cluster_markers, "/home/hnatri/13384_GBMHGG_SPP1_Xenium/main_
 
 ```{r, message = F, warning = F, fig.width = 6, fig.height = 6, eval = F}
 
-seurat_data$Lineage <- ifelse(seurat_data$leiden_0.5 %in% c(5, 6),
+seurat_data$Lineage <- ifelse(seurat_data$leiden_1.0 %in% c(0, 1, 4, 8),
                               "Immune", "TumorStroma")
 
 immune_subset <- subset(seurat_data, subset = Lineage == "Immune")

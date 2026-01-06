@@ -1,0 +1,447 @@
+---
+title: "Immune celltype annotation on GBM/HGG Xenium data"
+author: "heinin"
+date: "2025-10-11"
+output:
+  workflowr::wflow_html:
+    code_folding: hide
+  html_notebook: default
+editor_options:
+  chunk_output_type: console
+---
+
+## Import packages
+
+```{r, warning=F, message=F}
+
+suppressPackageStartupMessages({
+  library(workflowr)
+  library(arrow)
+  library(Seurat)
+  library(SeuratObject)
+  library(SeuratDisk)
+  library(tidyverse)
+  library(tibble)
+  library(ggplot2)
+  library(ggpubr)
+  library(ggrepel)
+  library(googlesheets4)
+  library(workflowr)})
+
+```
+
+## Environment variables and helper functions
+
+```{r, message = F, warning = F}
+
+setwd("/home/hnatri/13384_GBMHGG_SPP1_Xenium/")
+set.seed(9999)
+options(scipen = 99999)
+options(ggrepel.max.overlaps = Inf)
+
+source("/home/hnatri/13384_GBMHGG_SPP1_Xenium/code/colors.R")
+source("/home/hnatri/13384_GBMHGG_SPP1_Xenium/code/plot_functions.R")
+
+```
+
+## Feature annotations
+
+```{r, message = F, warning = F, fig.width = 4, fig.height = 7}
+
+gs4_deauth()
+all_sheets  <- gs4_get("https://docs.google.com/spreadsheets/d/1V1YxYPMI-J1ilZ3ooTDM323s5VMIf7E9f5XsuIOaGAg/edit?usp=sharing")
+sheet_names(all_sheets)
+multissue_cancer <- read_sheet(all_sheets, sheet = "Multi-tissue and cancer basepanel")
+custom_panel <- read_sheet(all_sheets, sheet = "Custom probes")
+
+immune_annot <- read_sheet(all_sheets, sheet = "Immune annotations")
+
+```
+
+## Annotation groups
+
+```{r, message = F, warning = F, fig.width = 4, fig.height = 7}
+
+# Markers
+main_plot_features <- c("PTPRC", "CD3D", "CD3E", "CD4", "CD8A", "JAK1", "JAK2", "STAT4", "STAT3", "TIGIT", "GZMB", "SELL", "CD19", "CD68", "CD44", "MARCO", "APOE", "C1QB", "C1QBP", "CD163", "SPP1", "VCAN", "MUC5AC", "NOTCH3", "RGS5", "MS4A1", "PGA5", "PLVAP", "CCL21", "LYVE", "SPARCL1", "FN1", "DCN", "LUM", "COL1A2", "PDPN", "ACTA2", "LMNA", "EGR3", "TP53", "JUN", "FOS", "BRAF", "KIT", "SOX9", "RNF43", "EPCAM", "PECAM", "CEACAM", "TGFB1", "JUNB", "TCF7", "GZMA", "GZMK", "CD47", "CD74", "LYZ", "TREM2", "CD247", "COL5A1", "SPARC", "CD36", "CTLA4", "RGS1", "CCL2", "SELENOP", "LYVE1", "CTSD", "MMP9", "CDK1", "FLT1", "RAMP2", "CCL14", "MCAM", "NRP1", "CEACAM6", "IL32", "TGFBI", "VEGFA", "LAMP1", "IGFBP7", "POSTN", "C1S", "C1R", "CSF1", "NOTCH1", "FOXP3", "IL2RB", "TUBA1B", "S100A9", "C3", "CXCR2", "SDC1", "CD38", "IGHG1", "PRDX4", "ICAM1", "GATA2", "CXCL3")
+
+neuro <- c("OLIG1", "OLIG2", "AQP4", "APOLD1", "CCL4", "RELN", "PLP1", "PDGFRA")
+mycafs <- c("TGFB1", "ACTA2", "TAGLN") #"HOPX", "MYL9"
+icafs <- c("IL6", "CXCL12", "CXCL14") #"CXCL13", 
+abcafs <- c("CD74", "HLA-DPB1", "HLA-DPB2", "HLA-DQA1", "HLA-DRA", "HLA-DRB1")
+ficafs <- c("SFRP2", "SFRP4", "COMP", "CXCL14", "PLA2G2A", "ASPN")
+
+main_plot_features <- c(main_plot_features, mycafs, icafs, abcafs, ficafs, neuro)
+main_plot_features <- unique(main_plot_features)
+
+# Smaller set for feature plots
+plot_features <- c("PTPRC", "CD3D", "CD3E", "CD4", "CD8A", "JAK1", "STAT3", "TIGIT", "GZMB", "SELL", "CD19", "CD68", "CD44", "MARCO", "APOE", "C1QB", "C1QBP", "CD163", "SPP1", "LYVE", "SPARCL1", "FN1", "DCN", "LUM", "COL1A2", "PDPN", "EPCAM", "PECAM", "CEACAM", "TGFB1", "JUNB", "TCF7", "GZMA", "GZMK", "CD47", "CD74", "LYZ", "TREM2", "CD247", "COL5A1", "SPARC", "CD36", "CTLA4", "RGS1", "CCL2", "SELENOP", "LYVE1", "FOXP3", "IL2RB", "TUBA1B", "S100A9", "SDC1")
+
+fibroblast_markers <- multissue_cancer[grep("Fibroblast", multissue_cancer$Annotation),]$Gene # 65
+
+immune_markers <- multissue_cancer[grep("Immune", multissue_cancer$Annotation),]$Gene # 6
+
+macrophage_markers <- multissue_cancer[grep("Macrophage", multissue_cancer$Annotation),]$Gene # 70
+granulocyte_markers <- multissue_cancer[grep("Granulocytes", multissue_cancer$Annotation),]$Gene # 25
+dendritic_markers <- c(multissue_cancer[grep("dendritic", multissue_cancer$Annotation),]$Gene,
+                       multissue_cancer[grep("Dendritic", multissue_cancer$Annotation),]$Gene) #22
+
+tcell_markers <- multissue_cancer[grep("T cells", multissue_cancer$Annotation),]$Gene # 62
+bcell_markers <- multissue_cancer[grep("B cells", multissue_cancer$Annotation),]$Gene # 45
+
+proliferation_markers <- multissue_cancer[grep("Proliferation", multissue_cancer$Annotation),]$Gene # 7
+endothelial_markers <- multissue_cancer[grep("Endothelial", multissue_cancer$Annotation),]$Gene # 82
+
+```
+
+## Import data
+
+```{r, message = F, warning = F, fig.width = 4, fig.height = 4}
+
+# Copied to isilon /tgen_labs/banovich/PIPAC/Seurat
+seurat_data <- readRDS("/tgen_labs/banovich/BCTCSF/13384_GBMHGG_Xenium/Seurat/immune_clustered_NN30_PC20_Seurat.rds")
+
+seurat_data <- NormalizeData(seurat_data)
+seurat_data <- ScaleData(seurat_data)
+
+# saveRDS(seurat_data, "/tgen_labs/banovich/BCTCSF/13384_GBMHGG_Xenium/Seurat/cell_clustered_NN30_PC50_Seurat.rds")
+
+DimPlot(seurat_data,
+        group.by = "leiden_1.5",
+        cols = immune_cluster_col,
+        reduction = "umap",
+        raster = T,
+        label = T) +
+  coord_fixed(ratio = 1) +
+  theme_classic() +
+  NoLegend()
+
+```
+
+```{r, message = F, warning = F, fig.width = 4, fig.height = 7}
+
+DimPlot(seurat_data,
+        reduction = "sp",
+        group.by = "leiden_1.5",
+        cols = immune_cluster_col,
+        raster = T,
+        label = F) +
+    coord_fixed(ratio = 1) +
+    theme_minimal() +
+    NoLegend() +
+    ggtitle("TMA1_0069754")
+
+```
+
+## Feature expression
+
+```{r, message = F, warning = F, fig.width = 10, fig.height = 20}
+
+DotPlot(seurat_data,
+        group.by = "leiden_1.5",
+        features = main_plot_features,
+        cols = c("gray89", "tomato3")) +
+  RotatedAxis()
+
+```
+
+```{r, message = F, warning = F, fig.width = 12, fig.height = 14}
+
+FeaturePlot(seurat_data,
+            slot = "data",
+            features = plot_features,
+            order = T,
+            ncol = 5,
+            reduction = "umap",
+            raster = T,
+            cols = c("gray89", "tomato3")) &
+  coord_fixed(ratio = 1) &
+  theme_bw() &
+  NoLegend()
+
+```
+
+
+```{r, message = F, warning = F, fig.width = 12, fig.height = 30}
+
+FeaturePlot(seurat_data,
+            slot = "data",
+            #split.by = "Sample",
+            features = plot_features,
+            order = T,
+            reduction = "sp",
+            raster = T,
+            ncol = 4,
+            cols = c("gray89", "tomato3")) &
+  coord_fixed(ratio = 1) &
+  theme_bw() &
+  NoLegend()
+
+```
+
+### DenoIST
+
+```{r, message = F, warning = F, fig.width = 10, fig.height = 4, eval = F}
+
+DefaultAssay(seurat_data) <- "denoist_RNA"
+DotPlot(seurat_data,
+        group.by = "leiden_1.5",
+        features = plot_features,
+        cols = c("azure", "tomato3")) +
+  RotatedAxis()
+
+```
+
+## Top cluster markers
+
+```{r, message = F, warning = F, fig.width = 5, fig.height = 4}
+
+Idents(seurat_data) <- seurat_data$"leiden_1.5"
+cluster_markers <- FindAllMarkers(seurat_data,
+                                  return.thresh = 0.01,
+                                  logfc.threshold = 0.5,
+                                  min.pct = 0.20,
+                                  verbose = T)
+
+table(cluster_markers$cluster)
+
+output_cluster_markers <- cluster_markers %>%
+  arrange(dplyr::desc(avg_log2FC)) %>%
+  group_by(cluster) %>%
+  dplyr::slice(1:30)
+
+write.table(output_cluster_markers, "/home/hnatri/13384_GBMHGG_SPP1_Xenium/immune_top_markers.tsv",
+            quote = F, row.names = F, sep = "\t")
+
+#hist(cluster_markers$avg_log2FC, main = "", xlab = "avg_log2FC", breaks = 100)
+#hist(cluster_markers$p_val, main = "", xlab = "p_val", breaks = 100)
+#hist(cluster_markers$p_val_adj, main = "", xlab = "p_val_adj", breaks = 100)
+
+top_cluster_markers <- cluster_markers %>%
+  arrange(dplyr::desc(avg_log2FC)) %>%
+  group_by(cluster) %>%
+  dplyr::slice(1:5)
+
+```
+
+Top markers
+
+```{r, message = F, warning = F, fig.width = 8, fig.height = 18, eval = T}
+
+create_dotplot_heatmap(seurat_object = seurat_data,
+                       plot_features = unique(top_cluster_markers$gene),
+                       group_var = "leiden_1.5",
+                       group_colors = immune_cluster_col,
+                       column_title = "",
+                       row_km = 5,
+                       col_km = 5,
+                       row.order = NULL,
+                       col.order = NULL)
+
+```
+
+Canonical markers
+
+```{r, message = F, warning = F, fig.width = 8, fig.height = 14, eval = T}
+
+create_dotplot_heatmap(seurat_object = seurat_data,
+                       plot_features = unique(main_plot_features),
+                       group_var = "leiden_1.5",
+                       group_colors = immune_cluster_col,
+                       column_title = "",
+                       row_km = 5,
+                       col_km = 5,
+                       row.order = NULL,
+                       col.order = NULL)
+
+```
+
+## Features by group
+
+### Fibroblast
+
+```{r, message = F, warning = F, fig.width = 8, fig.height = 12}
+
+create_dotplot_heatmap(seurat_object = seurat_data,
+                       plot_features = fibroblast_markers,
+                       group_var = "leiden_1.0",
+                       group_colors = immune_cluster_col,
+                       column_title = "",
+                       row_km = 5,
+                       col_km = 5,
+                       row.order = NULL,
+                       col.order = NULL)
+
+```
+
+### Immune markers
+
+```{r, message = F, warning = F, fig.width = 8, fig.height = 4}
+
+create_dotplot_heatmap(seurat_object = seurat_data,
+                       plot_features = immune_markers,
+                       group_var = "leiden_1.0",
+                       group_colors = immune_cluster_col,
+                       column_title = "",
+                       row_km = 5,
+                       col_km = 5,
+                       row.order = NULL,
+                       col.order = NULL)
+
+```
+
+### Macrophage markers
+
+```{r, message = F, warning = F, fig.width = 8, fig.height = 12}
+
+create_dotplot_heatmap(seurat_object = seurat_data,
+                       plot_features = macrophage_markers,
+                       group_var = "leiden_1.0",
+                       group_colors = immune_cluster_col,
+                       column_title = "",
+                       row_km = 5,
+                       col_km = 5,
+                       row.order = NULL,
+                       col.order = NULL)
+
+```
+
+### Granulocyte markers
+
+```{r, message = F, warning = F, fig.width = 8, fig.height = 8}
+
+create_dotplot_heatmap(seurat_object = seurat_data,
+                       plot_features = granulocyte_markers,
+                       group_var = "leiden_1.0",
+                       group_colors = immune_cluster_col,
+                       column_title = "",
+                       row_km = 5,
+                       col_km = 5,
+                       row.order = NULL,
+                       col.order = NULL)
+
+```
+
+### Dendritic markers
+
+```{r, message = F, warning = F, fig.width = 8, fig.height = 7}
+
+create_dotplot_heatmap(seurat_object = seurat_data,
+                       plot_features = dendritic_markers,
+                       group_var = "leiden_1.0",
+                       group_colors = immune_cluster_col,
+                       column_title = "",
+                       row_km = 5,
+                       col_km = 5,
+                       row.order = NULL,
+                       col.order = NULL)
+
+```
+
+### T cell markers
+
+```{r, message = F, warning = F, fig.width = 8, fig.height = 12}
+
+create_dotplot_heatmap(seurat_object = seurat_data,
+                       plot_features = tcell_markers,
+                       group_var = "leiden_1.0",
+                       group_colors = immune_cluster_col,
+                       column_title = "",
+                       row_km = 5,
+                       col_km = 5,
+                       row.order = NULL,
+                       col.order = NULL)
+
+```
+
+### B cell markers
+
+```{r, message = F, warning = F, fig.width = 8, fig.height = 14}
+
+create_dotplot_heatmap(seurat_object = seurat_data,
+                       plot_features = bcell_markers,
+                       group_var = "leiden_1.0",
+                       group_colors = immune_cluster_col,
+                       column_title = "",
+                       row_km = 5,
+                       col_km = 5,
+                       row.order = NULL,
+                       col.order = NULL)
+
+```
+
+### Proliferation cell markers
+
+```{r, message = F, warning = F, fig.width = 8, fig.height = 4}
+
+create_dotplot_heatmap(seurat_object = seurat_data,
+                       plot_features = proliferation_markers,
+                       group_var = "leiden_1.0",
+                       group_colors = immune_cluster_col,
+                       column_title = "",
+                       row_km = 5,
+                       col_km = 5,
+                       row.order = NULL,
+                       col.order = NULL)
+
+```
+
+### Endothelial cell markers
+
+```{r, message = F, warning = F, fig.width = 8, fig.height = 14}
+
+create_dotplot_heatmap(seurat_object = seurat_data,
+                       plot_features = endothelial_markers,
+                       group_var = "leiden_1.0",
+                       group_colors = immune_cluster_col,
+                       column_title = "",
+                       row_km = 5,
+                       col_km = 5,
+                       row.order = NULL,
+                       col.order = NULL)
+
+```
+
+### Custom features
+
+```{r, message = F, warning = F, fig.width = 8, fig.height = 26, eval = F}
+
+all_genes <- c(custom_panel$Gene) #multissue_cancer$Gene
+all_genes <- gsub("CD11b", "ITGAM", all_genes)
+all_genes <- gsub("CD11c", "ITGAX", all_genes)
+all_genes <- gsub("CD31", "PECAM1", all_genes)
+all_genes <- gsub("CD45", "PTPRC", all_genes)
+all_genes <- gsub("HLA-DR", "HLA-DRA", all_genes)
+all_genes <- gsub("HLA.DPB1", "HLA-DPB1", all_genes)
+all_genes <- gsub("IFNGR", "IFNGR1", all_genes)
+all_genes <- gsub("TGFβ", "TGFB1", all_genes)
+all_genes <- gsub("TGFβR", "TGFB1R", all_genes)
+all_genes <- gsub("TGFB1R", "TGFBR1", all_genes)
+all_genes <- gsub("IL-1R", "IL1R2", all_genes)
+
+all_genes <- sort(all_genes)
+
+create_dotplot_heatmap(seurat_object = seurat_data,
+                       plot_features = all_genes,
+                       group_var = "leiden_1.0",
+                       group_colors = immune_cluster_col,
+                       column_title = "",
+                       row_km = 5,
+                       col_km = 5,
+                       row.order = NULL,
+                       col.order = NULL)
+
+```
+
+## Adding preliminary annotations
+
+```{r, message = F, warning = F, fig.width = 8, fig.height = 26, eval = F}
+
+```
+
+## Reclustering ambiguous clusters
+
+```{r, message = F, warning = F, fig.width = 8, fig.height = 26, eval = F}
+
+```
+

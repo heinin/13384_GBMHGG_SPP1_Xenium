@@ -1,0 +1,33 @@
+# MAKE SURE YOU ARE ON A GPU NODE
+
+#gpusrunit() {
+#NODES=$1
+#CPUS=$2
+#RAM=$3
+#srun -p gpu-a100 --gres=gpu:1 -n $NODES --cpus-per-task=${CPUS} --mem=${RAM}G --pty bash
+#}
+#
+#gpusrunit 1 1 128 # Get a GPU node
+
+srun -p bigmem --partition=gpu-a100 --gres=gpu:A100:1 --cpus-per-task=8 --mem=300G --pty bash
+
+# Load Singularity
+module load singularity
+
+# Spin up container
+singularity shell --nv --contain -B /home/hnatri/13384_GBMHGG_SPP1_Xenium/ /tgen_labs/banovich/RSC_pipeline/RSC_latest_EDM_2025-08-06/RSC_latest_2025-08-06.sif
+
+# Go to the right working directory
+cd /home/hnatri/13384_GBMHGG_SPP1_Xenium/
+
+# Start jupyter notebook.
+jupyter lab --ip 0.0.0.0 --port 6120 --no-browser
+
+# Navigate to the URL in browser
+# Be sure to add .rc.tgen.org after the node name at the start of the URL.
+
+# http://g-h-1-9-31.rc.tgen.org:6120/lab?token=6fe4e881710c903e9e75278b2d5fb5968958f1beb5a57f2c
+
+# A basic workflow is available in RSC_basic_workflow_EDM_2025-08-06.ipynb
+# You can also build your own based on documentation at:
+# https://rapids-singlecell.readthedocs.io/en/latest/index.html

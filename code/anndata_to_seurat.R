@@ -19,18 +19,18 @@ library(ggplot2)
 # Convert data
 #==============================================================================
 
-seurat_data <- readRDS("/tgen_labs/banovich/BCTCSF/13384_GBMHGG_Xenium/spatial_filtered_splitsamples.rds")
-#cell_seurat_immune <- readRDS("/scratch/hnatri/PIPAC/cell_immune_subset.rds")
-#cell_seurat_nonimmune <- readRDS("/scratch/hnatri/PIPAC/cell_nonimmune_subset.rds")
+#seurat_data <- readRDS("/tgen_labs/banovich/BCTCSF/13384_GBMHGG_Xenium/spatial_filtered_splitsamples.rds")
+cell_seurat_immune <- readRDS("/scratch/hnatri/13384_GBMHGG_SPP1_Xenium/cell_immune_subset.rds")
+cell_seurat_nonimmune <- readRDS("/scratch/hnatri/13384_GBMHGG_SPP1_Xenium/cell_nonimmune_subset.rds")
 
-#seurat_data <- cell_seurat_nonimmune
+seurat_data <- cell_seurat_immune
 
 # Importing each element and building the seurat object
-raw_counts <- read.csv("/home/hnatri/13384_GBMHGG_SPP1_Xenium/code/RSC_latest_EDM_2025-08-06/raw_counts.csv", header = F)
-log1p_counts <- read.csv("/home/hnatri/13384_GBMHGG_SPP1_Xenium/code/RSC_latest_EDM_2025-08-06/log1p_counts.csv", header = F)
-obs <- read.csv("/home/hnatri/13384_GBMHGG_SPP1_Xenium/code/RSC_latest_EDM_2025-08-06/obs.csv")
-pcs <- as.matrix(read.csv("/home/hnatri/13384_GBMHGG_SPP1_Xenium/code/RSC_latest_EDM_2025-08-06/pcs.csv", header = F))
-umap <- as.matrix(read.csv("/home/hnatri/13384_GBMHGG_SPP1_Xenium/code/RSC_latest_EDM_2025-08-06/umap.csv", header = F))
+raw_counts <- read.csv("/home/hnatri/13384_GBMHGG_SPP1_Xenium/code/RSC_latest_EDM_2025-08-06/cell_immune_raw_counts.csv", header = F)
+log1p_counts <- read.csv("/home/hnatri/13384_GBMHGG_SPP1_Xenium/code/RSC_latest_EDM_2025-08-06/cell_immune_log1p_counts.csv", header = F)
+obs <- read.csv("/home/hnatri/13384_GBMHGG_SPP1_Xenium/code/RSC_latest_EDM_2025-08-06/cell_immune_obs.csv")
+pcs <- as.matrix(read.csv("/home/hnatri/13384_GBMHGG_SPP1_Xenium/code/RSC_latest_EDM_2025-08-06/cell_immune_pcs.csv", header = F))
+umap <- as.matrix(read.csv("/home/hnatri/13384_GBMHGG_SPP1_Xenium/code/RSC_latest_EDM_2025-08-06/cell_immune_umap.csv", header = F))
 
 rownames(obs) <- obs$cell_id
 obs <- obs[,-which(names(obs) %in% c("X"))]
@@ -83,4 +83,4 @@ DimPlot(seurat,
   ggtitle("")
 
 # Saving as Seurat
-saveRDS(seurat, "/tgen_labs/banovich/BCTCSF/13384_GBMHGG_Xenium/Seurat/spatial_clustered_NN30_PC50_Seurat.rds")
+saveRDS(seurat, "/tgen_labs/banovich/BCTCSF/13384_GBMHGG_Xenium/Seurat/immune_clustered_NN30_PC20_Seurat.rds")
