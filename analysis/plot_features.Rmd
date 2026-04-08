@@ -578,4 +578,24 @@ plot_list <- lapply(all_custom_genes, function(xx){
 
 plot_list
 
+#ppp <- FeaturePlot(seurat_data,
+#            slot = "data",
+#            features = c("SPP1"),
+#            order = T,
+#            reduction = "sp",
+#            raster = T,
+#            cols = c("gray89", "tomato3")) &
+#  coord_fixed(ratio = 1) &
+#  theme_classic()
+#
+#filename <- "/home/hnatri/SPP1_Xenium.pdf"
+#pdf(file = filename,
+#    width = 4,
+#    height = 6)
+#
+#ppp
+#
+#dev.off()
+
+
 ```

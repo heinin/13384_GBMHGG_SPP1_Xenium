@@ -1,0 +1,165 @@
+---
+title: "Comparing SPP1 high vs. low tumors, Xenium data"
+author: "heinin"
+date: "2026-01-10"
+output:
+  workflowr::wflow_html:
+    code_folding: hide
+  html_notebook: default
+editor_options:
+  chunk_output_type: console
+---
+
+## Load packages
+
+```{r, warning=F, message=F}
+
+suppressPackageStartupMessages({
+  library(workflowr)
+  library(arrow)
+  library(Seurat)
+  library(SeuratObject)
+  library(SeuratDisk)
+  library(tidyverse)
+  library(tibble)
+  library(plyr)
+  library(ggplot2)
+  library(ggpubr)
+  library(ggrepel)
+  library(googlesheets4)
+  library(workflowr)
+  library(patchwork)
+  library(scProportionTest)})
+
+```
+
+## Environment variables and helper functions
+
+```{r, message = F, warning = F}
+
+setwd("/home/hnatri/13384_GBMHGG_SPP1_Xenium/")
+set.seed(9999)
+options(future.globals.maxSize = 30000 * 1024^2)
+options(scipen = 99999)
+options(ggrepel.max.overlaps = Inf)
+
+#source("/home/hnatri/13384_GBMHGG_SPP1_Xenium/code/colors_themes.R")
+source("/home/hnatri/13384_GBMHGG_SPP1_Xenium/code/plot_functions.R")
+
+# Lineage info
+gs4_deauth()
+all_sheets  <- gs4_get("https://docs.google.com/spreadsheets/d/1V1YxYPMI-J1ilZ3ooTDM323s5VMIf7E9f5XsuIOaGAg/edit?usp=sharing")
+sheet_names(all_sheets)
+multissue_cancer <- read_sheet(all_sheets, sheet = "Multi-tissue and cancer basepanel")
+custom_panel <- read_sheet(all_sheets, sheet = "Custom probes")
+immune_annot <- read_sheet(all_sheets, sheet = "Immune annotations")
+nonimmune_annot <- read_sheet(all_sheets, sheet = "Non-immune annotations")
+
+all_annot <- rbind(immune_annot, nonimmune_annot)
+
+# Calling DEGs between two groups for each cell type
+get_DEGs <- function(seuratdata, ctvar, celltypes, groupvar, group1, group2){
+  #message(xx)
+  DEGlist <- lapply(celltypes, function(xx){
+    seuratdata$DEGgroup <- seuratdata@meta.data[,ctvar]
+    data_subset <- subset(seuratdata, subset = DEGgroup == xx)
+    Idents(data_subset) <- as.character(unlist(data_subset[[groupvar]]))
+    
+    if (min(table(unlist(data_subset[[groupvar]])))<20){
+      return(NULL)
+    }
+    
+    if (all((c(group1, group2) %in% unlist(data_subset[[groupvar]]) == c(T, T)))){
+      markers <- FindMarkers(data_subset,
+                             ident.1 = group1,
+                             ident.2 = group2,
+                             assay = "RNA",
+                             verbose = F)
+      markers$feature <- rownames(markers)
+      markers[,ctvar] <- xx
+      
+      return(markers)
+    } else {
+      return(NULL)
+    }
+    })
+  
+  as.data.frame(do.call(rbind, DEGlist))
+}
+
+```
+
+## Import data
+
+```{r, message = F, warning = F, fig.width = 8, fig.height = 4}
+
+seurat_data <- readRDS("/tgen_labs/banovich/BCTCSF/13384_GBMHGG_Xenium/Seurat/immune_nonimmune_annotated_merged_Seurat_niches.rds")
+
+```
+
+## Cell type proportions
+
+*High SPP1, PD:* 146, 248, 234\
+*Low SPP1, SD/CR:* 109, 141, 301
+
+```{r, message = F, warning = F, fig.width = 10, fig.height = 15, eval = T}
+
+prop_test <- sc_utils(seurat_data)
+prop_test <- permutation_test(
+	prop_test, cluster_identity = "prelim_annot",
+	sample_1 = "SPP1high", sample_2 = "SPP1low",
+	sample_identity = "SPP1_high")
+
+permutation_plot(prop_test) + ggtitle("TMA1 only, SPP1 high vs. low")
+
+```
+
+```{r, message = F, warning = F, fig.width = 10, fig.height = 4, eval = T}
+
+seurat_data$prelim_annot <- factor(seurat_data$prelim_annot,
+                                            levels = sort(unique(seurat_data$prelim_annot)))
+celltype_col <- colorRampPalette(brewer.pal(8, "Paired"))(nb.cols <- length(sort(unique(seurat_data$prelim_annot))))
+names(celltype_col) <- levels(seurat_data$prelim_annot)
+
+create_barplot(seurat_data,
+               plot_var = "prelim_annot",
+               group_var = "SPP1_high",
+               plot_levels = names(celltype_col),
+               group_levels = sort(unique(seurat_data$SPP1_high)),
+               plot_colors = celltype_col,
+               var_names =  c("Frequency (%)", ""),
+               legend_title = "Niche")
+
+```
+
+## Niche proportions
+
+```{r, message = F, warning = F, fig.width = 5, fig.height = 4, eval = T}
+
+prop_test <- sc_utils(seurat_data)
+prop_test <- permutation_test(
+	prop_test, cluster_identity = "ncells3k_niche_k8_n20",
+	sample_1 = "SPP1high", sample_2 = "SPP1low",
+	sample_identity = "SPP1_high")
+
+permutation_plot(prop_test) + ggtitle("TMA1 only, SPP1 high vs. low")
+
+```
+
+```{r, message = F, warning = F, fig.width = 3.5, fig.height = 4, eval = T}
+
+seurat_data$ncells3k_niche_k8_n20 <- factor(seurat_data$ncells3k_niche_k8_n20,
+                                            levels = seq(1, 8))
+niche_col <- colorRampPalette(brewer.pal(8, "Paired"))(nb.cols <- 8)
+names(niche_col) <- seq(1, 8)
+
+create_barplot(seurat_data,
+               plot_var = "ncells3k_niche_k8_n20",
+               group_var = "SPP1_high",
+               plot_levels = seq(1, 8),
+               group_levels = sort(unique(seurat_data$SPP1_high)),
+               plot_colors = niche_col,
+               var_names =  c("Frequency (%)", ""),
+               legend_title = "Niche")
+
+```

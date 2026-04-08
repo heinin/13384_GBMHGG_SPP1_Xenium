@@ -18,5 +18,9 @@ Project tables: [https://docs.google.com/spreadsheets/d/1V1YxYPMI-J1ilZ3ooTDM323
 4. [Plot features by type](plot_features.html)\
 5. [Plotting all base-panel features](plot_all_features.html)\
 6. [Plotting all custom panel features](plot_all_features_custom.html)\
+7. [Immune, preliminary annotations](immune_annotation.html)\
+8. [Non-immune, preliminary annotations](nonimmune_annotation.html)\
+9. [Niche construction](niche_construction_ncells3k_nneighbors20.html)\
+10. [Comparative analysis](comparative_analysis.html)\
 
 Contact: Heini M Natri, hnatri@tgen.org

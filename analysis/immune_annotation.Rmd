@@ -55,6 +55,7 @@ multissue_cancer <- read_sheet(all_sheets, sheet = "Multi-tissue and cancer base
 custom_panel <- read_sheet(all_sheets, sheet = "Custom probes")
 
 immune_annot <- read_sheet(all_sheets, sheet = "Immune annotations")
+nonimmune_annot <- read_sheet(all_sheets, sheet = "Non-immune annotations")
 
 ```
 
@@ -435,7 +436,15 @@ create_dotplot_heatmap(seurat_object = seurat_data,
 
 ## Adding preliminary annotations
 
-```{r, message = F, warning = F, fig.width = 8, fig.height = 26, eval = F}
+```{r, message = F, warning = F, fig.width = 8, fig.height = 26, eval = T}
+
+seurat_data$prelim_annot <- mapvalues(seurat_data$leiden_1.5,
+                                      from = immune_annot$leiden_1.5,
+                                      to = immune_annot$annotation)
+
+unique(seurat_data$prelim_annot)
+
+saveRDS(seurat_data, "/tgen_labs/banovich/BCTCSF/13384_GBMHGG_Xenium/Seurat/immune_clustered_NN30_PC20_Seurat.rds")
 
 ```
 
